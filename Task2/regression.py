@@ -6,6 +6,8 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
+import matplotlib.pylab as plt
+from sklearn.model_selection import learning_curve
 
 #звргузка целевого датасета
 df = pd.read_csv("train.csv")
@@ -36,7 +38,7 @@ for name, model in models.items():
     fitted_models[name] = model
 
 
-#Оценить качество моделей с помощью MSE, RMSE, MAE, R²
+#Оценка качества моделей с помощью MSE, RMSE, MAE, R²
 for name, model in fitted_models.items():
     pred = model.predict(X_test)
     MSE = mean_squared_error(y_test, pred)
@@ -44,8 +46,50 @@ for name, model in fitted_models.items():
     MAE = mean_absolute_error(y_test, pred)
     R2 = r2_score(y_test, pred)
 
+
 print(f"\n{name}: ")
-print(f"{MSE}: ")
+print(f"MSE: {MSE}")
 print(f"RMSE: {MSE:.4f}")
 print(f"MAE: {MAE:.4f}")
 print(f"R2: {R2:.4f}")
+
+
+#Визуализация предсказаний
+best_res = fitted_models["RandomForestRegressor"]
+pred = best_res.predict(X_test)
+plt.scatter(y_test, pred)
+plt.xlabel("Реальна] стоимость")
+plt.ylabel("Предсказанная стоимость")
+plt.title("предсказания vs реальные значения")
+plt.show()
+
+#Анализ важности признаков
+feature_names = X.columns
+importance = best_res.feature_importances_
+
+fi = pd.DataFrame({
+    "feature": feature_names,
+    "importance": importance
+}).sort_values("importance", ascending=False)
+
+print(fi)
+
+#Прверка на переобучение
+train_size, train_score, val_score = learning_curve(
+    best_res,
+    X, y,
+    train_sizes=np.linspace(0.1, 1.0, 10),
+    cv = 10, #оценка подвыборных данных
+    scoring = "neg_mean_squared_error"
+)
+
+train_scores_mean = -train_score.mean(axis=1)
+val_scores_mean = -val_score.mean(axis=1)
+
+plt.plot(train_size, train_scores_mean, label="Ошибка обучения")
+plt.plot(train_size, val_scores_mean, label="Ошибка валидации")
+plt.xlabel("Размер обучения")
+plt.ylabel("MSE")
+plt.legend()
+plt.title("Проверка переобучения")
+plt.show()
